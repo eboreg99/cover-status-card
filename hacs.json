@@ -1,0 +1,7 @@
+{
+  "name": "Cover Status Card",
+  "description": "Lovelace card displaying cover entity status and position in two lines, with optional tilt support.",
+  "render_readme": true,
+  "filename": "cover-status-card.js",
+  "homeassistant": "2021.3.0"
+}
