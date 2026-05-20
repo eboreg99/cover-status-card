@@ -67,14 +67,27 @@ class CoverStatusCard extends HTMLElement {
       ?? stateObj?.attributes?.friendly_name
       ?? entityId;
 
-    // --- Hintergrundfarbe je nach Position ---
+    // --- Hintergrundfarbe je nach Position und Tilt ---
     const _pos    = stateObj?.attributes?.current_position;
-    const _posNum = (_pos !== undefined && _pos !== null) ? Number(_pos) : null;
-    const bgColor =
-      _posNum === null ? "pink"      :
-      _posNum <= 3     ? "slategray" :
-      _posNum >= 97    ? "gold"      :
-                         "orange";
+    const _tilt   = stateObj?.attributes?.current_tilt_position;
+    const _posNum = (_pos  !== undefined && _pos  !== null) ? Number(_pos)  : null;
+    const _tiltNum= (_tilt !== undefined && _tilt !== null) ? Number(_tilt) : null;
+
+    let bgColor;
+    if (_posNum === null) {
+      bgColor = "pink";
+    } else if (_posNum <= 3) {
+      // Pos 0-3: Farbe hängt vom Tilt ab (nur wenn show_tilt aktiv und Tilt vorhanden)
+      if (showTilt && _tiltNum !== null && _tiltNum > 3) {
+        bgColor = "silver";
+      } else {
+        bgColor = "slategray";
+      }
+    } else if (_posNum >= 97) {
+      bgColor = "gold";
+    } else {
+      bgColor = "orange";
+    }
 
     // --- Zeile 2: Status + Position ---
     let line2 = "Unbekannt";
