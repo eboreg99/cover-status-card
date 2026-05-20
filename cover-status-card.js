@@ -67,6 +67,15 @@ class CoverStatusCard extends HTMLElement {
       ?? stateObj?.attributes?.friendly_name
       ?? entityId;
 
+    // --- Hintergrundfarbe je nach Position ---
+    const _pos    = stateObj?.attributes?.current_position;
+    const _posNum = (_pos !== undefined && _pos !== null) ? Number(_pos) : null;
+    const bgColor =
+      _posNum === null ? "pink"      :
+      _posNum <= 3     ? "slategray" :
+      _posNum >= 97    ? "gold"      :
+                         "orange";
+
     // --- Zeile 2: Status + Position ---
     let line2 = "Unbekannt";
 
@@ -88,20 +97,12 @@ class CoverStatusCard extends HTMLElement {
         // Status-Text
         line2 = this._getStatusLabel(state);
 
-        // Position anhängen, wenn nicht 0 % oder 100 %
-        if (posNum !== null && posNum > 0 && posNum < 100) {
+        // Position anhängen, wenn zwischen 3 % und 97 %
+        if (posNum !== null && posNum >= 3 && posNum <= 97) {
           line2 += ` · ${posNum}\u202f%`;
         }
       }
     }
-
-    // --- Farb-Klasse je nach Zustand ---
-    const state     = stateObj?.state ?? "unavailable";
-    const colorClass =
-      state === "open"    ? "state-open"    :
-      state === "closed"  ? "state-closed"  :
-      state === "opening" || state === "closing" ? "state-moving" :
-      "state-unknown";
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -112,7 +113,7 @@ class CoverStatusCard extends HTMLElement {
         }
 
         .card {
-          background: var(--ha-card-background, var(--card-background-color, #fff));
+          background: ${bgColor};
           border-radius: var(--ha-card-border-radius, 12px);
           padding: 10px 14px;
           box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.15));
@@ -124,8 +125,8 @@ class CoverStatusCard extends HTMLElement {
         .card:active { opacity: .75; }
 
         .name {
-          font-weight: 600;
-          color: var(--primary-text-color, #212121);
+          font-weight: 400;
+          color: #000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -133,22 +134,19 @@ class CoverStatusCard extends HTMLElement {
         }
 
         .status {
+          font-weight: 700;
           font-size: .85em;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        /* Zustandsfarben */
-        .state-open    { color: var(--success-color, #4CAF50); }
-        .state-closed  { color: var(--disabled-text-color, #9e9e9e); }
-        .state-moving  { color: var(--warning-color, #FF9800); }
-        .state-unknown { color: var(--error-color, #F44336); }
+        .status { color: #000; }
       </style>
 
       <div class="card" title="${entityId}">
         <div class="name">${name}</div>
-        <div class="status ${colorClass}">${line2}</div>
+        <div class="status">${line2}</div>
       </div>
     `;
 
