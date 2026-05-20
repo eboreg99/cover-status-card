@@ -25,9 +25,8 @@
  *     left: 20%
  */
 
-// Standardfarben – werden verwendet wenn der User keine eigenen definiert
 const DEFAULTS = {
-  unknown: "#ffc0cb",   // pink
+  unknown: "#ffc0cb",
   closed:  "slategray",
   tilt:    "silver",
   partial: "orange",
@@ -89,12 +88,10 @@ class CoverStatusCard extends HTMLElement {
     const showTilt = this._config.show_tilt ?? false;
     const colors   = { ...DEFAULTS, ...(this._config.colors ?? {}) };
 
-    // --- Zeile 1: Name ---
     const name = this._config.name
       ?? stateObj?.attributes?.friendly_name
       ?? entityId;
 
-    // --- Hintergrundfarbe je nach Position und Tilt ---
     const _pos    = stateObj?.attributes?.current_position;
     const _tilt   = stateObj?.attributes?.current_tilt_position;
     const _posNum = (_pos  != null) ? Number(_pos)  : null;
@@ -104,37 +101,28 @@ class CoverStatusCard extends HTMLElement {
     if (_posNum === null) {
       bgColor = colors.unknown;
     } else if (_posNum <= 5) {
-      if (showTilt && _tiltNum !== null && _tiltNum >= 5) {
-        bgColor = colors.tilt;
-      } else {
-        bgColor = colors.closed;
-      }
+      bgColor = (showTilt && _tiltNum !== null && _tiltNum >= 5) ? colors.tilt : colors.closed;
     } else if (_posNum >= 95) {
       bgColor = colors.open;
     } else {
       bgColor = colors.partial;
     }
 
-    // --- Zeile 2: Status + Position ---
     let line2 = "Unbekannt";
-
     if (stateObj) {
-      const state   = stateObj.state;
       const posNum  = (_pos  != null) ? Number(_pos)  : null;
       const tiltNum = (_tilt != null) ? Number(_tilt) : null;
       const useTilt = showTilt && tiltNum !== null && posNum !== null && posNum < 5;
-
       if (useTilt) {
         line2 = `Tilt ${tiltNum}\u202f%`;
       } else {
-        line2 = this._getStatusLabel(state);
+        line2 = this._getStatusLabel(stateObj.state);
         if (posNum !== null && posNum >= 5 && posNum <= 95) {
           line2 += ` · ${posNum}\u202f%`;
         }
       }
     }
 
-    // --- Breite ---
     const configWidth  = this._config?.style?.width;
     const cardWidth    = configWidth ? "100%"  : "fit-content";
     const cardMinWidth = configWidth ? "unset" : "120px";
@@ -205,17 +193,24 @@ class CoverStatusCardEditor extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._config = {};
+    this._rendered = false;
   }
 
   set hass(hass) {
     this._hass = hass;
+    // hass an Entity-Picker weitergeben, ohne neu zu rendern
     const picker = this.shadowRoot.querySelector("ha-entity-picker");
     if (picker) picker.hass = hass;
   }
 
   setConfig(config) {
     this._config = { ...config };
-    this._render();
+    if (this._rendered) {
+      // Nur Werte aktualisieren, kein komplettes Re-Render (verhindert Fokus-Verlust)
+      this._syncFields();
+    } else {
+      this._buildDOM();
+    }
   }
 
   _fire(config) {
@@ -226,91 +221,50 @@ class CoverStatusCardEditor extends HTMLElement {
     }));
   }
 
-  // Farbe für ein bestimmtes Feld aus Config lesen, Fallback auf Default
   _colorVal(key) {
     return this._config.colors?.[key] ?? DEFAULTS[key];
   }
 
-  // Hex-Farbe normalisieren (CSS-Namen → Hex für input[type=color])
-  // input[type=color] benötigt zwingend einen #rrggbb-Wert
   _toHex(color) {
     const ctx = document.createElement("canvas").getContext("2d");
     ctx.fillStyle = color;
-    // canvas normalisiert den Wert automatisch
-    return ctx.fillStyle; // gibt immer #rrggbb zurück
+    return ctx.fillStyle;
   }
 
-  _render() {
-    const cfg = this._config;
+  // Einmalig das DOM aufbauen und Event-Listener setzen
+  _buildDOM() {
+    this._rendered = true;
 
     const colorFields = [
-      { key: "unknown", label: "Unbekannt",        hint: "Position nicht verfügbar" },
-      { key: "closed",  label: "Geschlossen",       hint: "Position 0–5 %" },
-      { key: "tilt",    label: "Tilt (Lamellen)",   hint: "Position 0–5 %, Tilt ≥ 5 % (show_tilt)" },
-      { key: "partial", label: "Halb offen",        hint: "Position 6–94 %" },
-      { key: "open",    label: "Offen",             hint: "Position 95–100 %" },
+      { key: "unknown", label: "Unbekannt",       hint: "Position nicht verfügbar" },
+      { key: "closed",  label: "Geschlossen",      hint: "Position 0–5 %" },
+      { key: "tilt",    label: "Tilt (Lamellen)",  hint: "Position 0–5 %, Tilt ≥ 5 % (show_tilt)" },
+      { key: "partial", label: "Halb offen",       hint: "Position 6–94 %" },
+      { key: "open",    label: "Offen",            hint: "Position 95–100 %" },
     ];
 
-    const colorRows = colorFields.map(({ key, label, hint }) => {
-      const hex = this._toHex(this._colorVal(key));
-      return `
-        <div class="color-row" data-key="${key}">
-          <div class="color-info">
-            <span class="color-label">${label}</span>
-            <span class="hint">${hint}</span>
-          </div>
-          <div class="color-controls">
-            <div class="color-swatch" style="background:${hex}"></div>
-            <input
-              class="color-picker"
-              type="color"
-              data-key="${key}"
-              value="${hex}"
-              title="${label}"
-            />
-            <input
-              class="color-text"
-              type="text"
-              data-key="${key}"
-              value="${this._colorVal(key)}"
-              placeholder="${DEFAULTS[key]}"
-              spellcheck="false"
-            />
-            <button class="color-reset" data-key="${key}" title="Zurücksetzen">↺</button>
-          </div>
+    const colorRows = colorFields.map(({ key, label, hint }) => `
+      <div class="color-row" data-key="${key}">
+        <div class="color-info">
+          <span class="color-label">${label}</span>
+          <span class="hint">${hint}</span>
         </div>
-      `;
-    }).join("");
+        <div class="color-controls">
+          <div class="color-swatch" data-key="${key}"></div>
+          <input class="color-picker" type="color" data-key="${key}" />
+          <input class="color-text"   type="text"  data-key="${key}" spellcheck="false" />
+          <button class="color-reset" data-key="${key}" title="Zurücksetzen">↺</button>
+        </div>
+      </div>
+    `).join("");
 
     this.shadowRoot.innerHTML = `
       <style>
         .editor {
-          padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 20px;
         }
-
-        /* Vorschau */
-        .section-label {
-          font-size: .75em;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: .05em;
-          color: var(--secondary-text-color);
-          margin-bottom: 6px;
-        }
-        .preview-wrap {
-          background: var(--secondary-background-color, #f0f0f0);
-          border-radius: 8px;
-          padding: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 56px;
-        }
-
-        /* Felder */
         .field {
           display: flex;
           flex-direction: column;
@@ -322,7 +276,7 @@ class CoverStatusCardEditor extends HTMLElement {
           color: var(--primary-text-color);
         }
         ha-entity-picker { width: 100%; }
-        input[type="text"]:not(.color-text) {
+        .name-input {
           width: 100%;
           box-sizing: border-box;
           padding: 8px 10px;
@@ -334,11 +288,7 @@ class CoverStatusCardEditor extends HTMLElement {
           outline: none;
           transition: border-color .15s;
         }
-        input[type="text"]:not(.color-text):focus {
-          border-color: var(--primary-color, #03a9f4);
-        }
-
-        /* Toggle */
+        .name-input:focus { border-color: var(--primary-color, #03a9f4); }
         .toggle-row {
           display: flex;
           align-items: center;
@@ -354,8 +304,14 @@ class CoverStatusCardEditor extends HTMLElement {
           color: var(--secondary-text-color);
           margin-top: 2px;
         }
-
-        /* Farbkonfiguration */
+        .section-label {
+          font-size: .75em;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          color: var(--secondary-text-color);
+          margin-bottom: 6px;
+        }
         .color-row {
           display: flex;
           align-items: center;
@@ -371,10 +327,7 @@ class CoverStatusCardEditor extends HTMLElement {
           flex: 1;
           min-width: 0;
         }
-        .color-label {
-          font-size: .85em;
-          color: var(--primary-text-color);
-        }
+        .color-label { font-size: .85em; color: var(--primary-text-color); }
         .color-controls {
           display: flex;
           align-items: center;
@@ -434,14 +387,6 @@ class CoverStatusCardEditor extends HTMLElement {
 
       <div class="editor">
 
-        <!-- Vorschau -->
-        <div>
-          <div class="section-label">Vorschau</div>
-          <div class="preview-wrap">
-            <cover-status-card id="preview"></cover-status-card>
-          </div>
-        </div>
-
         <!-- Entity -->
         <div class="field">
           <label>Entität *</label>
@@ -449,104 +394,101 @@ class CoverStatusCardEditor extends HTMLElement {
             id="entity-picker"
             allow-custom-entity
             domain-filter="cover"
-            .value="${cfg.entity ?? ""}"
           ></ha-entity-picker>
         </div>
 
         <!-- Name -->
         <div class="field">
           <label>Name (optional)</label>
-          <input
-            id="name-input"
-            type="text"
-            placeholder="Leer = Entity-Name"
-            value="${cfg.name ?? ""}"
-          />
+          <input id="name-input" class="name-input" type="text" placeholder="Leer = Entity-Name" />
           <div class="hint">Überschreibt den angezeigten Namen in Zeile 1.</div>
         </div>
 
-        <!-- show_tilt Toggle -->
+        <!-- show_tilt -->
         <div class="toggle-row">
           <div>
             <label>Tilt-Anzeige aktivieren</label>
             <div class="hint">Zeigt Lamellenstellung wenn Position &lt; 5 %</div>
           </div>
-          <ha-switch id="tilt-switch" ${cfg.show_tilt ? "checked" : ""}></ha-switch>
+          <ha-switch id="tilt-switch"></ha-switch>
         </div>
 
         <!-- Farben -->
         <div>
           <div class="section-label">Farben</div>
-          <div id="color-fields">
-            ${colorRows}
-          </div>
+          <div id="color-fields">${colorRows}</div>
         </div>
 
       </div>
     `;
 
-    // --- Picker & Basis-Felder ---
-    const picker   = this.shadowRoot.querySelector("#entity-picker");
-    const nameInput = this.shadowRoot.querySelector("#name-input");
-    const tiltSwitch = this.shadowRoot.querySelector("#tilt-switch");
-
-    if (this._hass) picker.hass = this._hass;
-
-    picker.addEventListener("value-changed", (e) => {
-      this._config = { ...this._config, entity: e.detail.value };
-      this._fire(this._config);
-      this._updatePreview();
+    // Entity-Picker: erst verwenden wenn Custom Element definiert ist
+    customElements.whenDefined("ha-entity-picker").then(() => {
+      const picker = this.shadowRoot.querySelector("#entity-picker");
+      if (this._hass) picker.hass = this._hass;
+      picker.value = this._config.entity ?? "";
+      picker.addEventListener("value-changed", (e) => {
+        this._config = { ...this._config, entity: e.detail.value };
+        this._fire(this._config);
+      });
     });
 
-    nameInput.addEventListener("input", (e) => {
+    // Name-Input: nur bei blur feuern, nicht bei jedem Tastendruck
+    const nameInput = this.shadowRoot.querySelector("#name-input");
+    nameInput.value = this._config.name ?? "";
+    nameInput.addEventListener("change", (e) => {
       const val = e.target.value.trim();
       const newCfg = { ...this._config };
       if (val) newCfg.name = val; else delete newCfg.name;
       this._config = newCfg;
       this._fire(this._config);
-      this._updatePreview();
     });
 
+    // Tilt-Switch
+    const tiltSwitch = this.shadowRoot.querySelector("#tilt-switch");
+    tiltSwitch.checked = this._config.show_tilt ?? false;
     tiltSwitch.addEventListener("change", (e) => {
       this._config = { ...this._config, show_tilt: e.target.checked };
       this._fire(this._config);
-      this._updatePreview();
     });
 
-    // --- Farb-Events ---
+    // Farb-Events
     this.shadowRoot.querySelectorAll(".color-picker").forEach((input) => {
-      input.addEventListener("input", (e) => {
-        this._setColor(e.target.dataset.key, e.target.value);
-      });
+      input.addEventListener("input", (e) => this._setColor(e.target.dataset.key, e.target.value));
     });
-
     this.shadowRoot.querySelectorAll(".color-text").forEach((input) => {
       input.addEventListener("change", (e) => {
         const val = e.target.value.trim();
         if (val) this._setColor(e.target.dataset.key, val);
       });
     });
-
     this.shadowRoot.querySelectorAll(".color-reset").forEach((btn) => {
       btn.addEventListener("click", (e) => {
-        const key = e.target.dataset.key;
+        const key = e.currentTarget.dataset.key;
         const newColors = { ...(this._config.colors ?? {}) };
         delete newColors[key];
-        if (Object.keys(newColors).length === 0) {
-          const newCfg = { ...this._config };
-          delete newCfg.colors;
-          this._config = newCfg;
-        } else {
-          this._config = { ...this._config, colors: newColors };
-        }
+        const newCfg = { ...this._config };
+        if (Object.keys(newColors).length === 0) delete newCfg.colors;
+        else newCfg.colors = newColors;
+        this._config = newCfg;
         this._fire(this._config);
-        // Felder neu rendern ohne komplettes Re-Render
         this._refreshColorRow(key);
-        this._updatePreview();
       });
     });
 
-    this._initPreview();
+    // Initial Farbwerte setzen
+    ["unknown", "closed", "tilt", "partial", "open"].forEach(k => this._refreshColorRow(k));
+  }
+
+  // Nur Feldwerte aktualisieren (kein DOM-Rebuild → kein Fokus-Verlust)
+  _syncFields() {
+    const picker = this.shadowRoot.querySelector("#entity-picker");
+    if (picker && picker.value !== (this._config.entity ?? "")) {
+      picker.value = this._config.entity ?? "";
+    }
+    const tiltSwitch = this.shadowRoot.querySelector("#tilt-switch");
+    if (tiltSwitch) tiltSwitch.checked = this._config.show_tilt ?? false;
+    ["unknown", "closed", "tilt", "partial", "open"].forEach(k => this._refreshColorRow(k));
   }
 
   _setColor(key, value) {
@@ -554,39 +496,18 @@ class CoverStatusCardEditor extends HTMLElement {
     this._config = { ...this._config, colors: newColors };
     this._fire(this._config);
     this._refreshColorRow(key);
-    this._updatePreview();
   }
 
-  // Swatch und Text-Input aktualisieren ohne Komplett-Re-Render
   _refreshColorRow(key) {
     const color  = this._colorVal(key);
     const hex    = this._toHex(color);
-    const swatch = this.shadowRoot.querySelector(`.color-row[data-key="${key}"] .color-swatch`);
+    const swatch = this.shadowRoot.querySelector(`.color-swatch[data-key="${key}"]`);
     const picker = this.shadowRoot.querySelector(`.color-picker[data-key="${key}"]`);
     const text   = this.shadowRoot.querySelector(`.color-text[data-key="${key}"]`);
     if (swatch) swatch.style.background = hex;
     if (picker) picker.value = hex;
-    if (text)   text.value   = color;
-  }
-
-  _initPreview() {
-    const preview = this.shadowRoot.querySelector("#preview");
-    if (!preview) return;
-    try {
-      if (this._config.entity) preview.setConfig(this._config);
-      if (this._hass) preview.hass = this._hass;
-    } catch (_) {}
-  }
-
-  _updatePreview() {
-    const preview = this.shadowRoot.querySelector("#preview");
-    if (!preview) return;
-    try {
-      if (this._config.entity) {
-        preview.setConfig(this._config);
-        if (this._hass) preview.hass = this._hass;
-      }
-    } catch (_) {}
+    // Text-Input nur aktualisieren wenn nicht fokussiert
+    if (text && document.activeElement !== text) text.value = color;
   }
 }
 
