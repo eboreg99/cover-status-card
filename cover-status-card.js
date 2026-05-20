@@ -198,9 +198,8 @@ class CoverStatusCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    // hass an Entity-Picker weitergeben, ohne neu zu rendern
-    const picker = this.shadowRoot.querySelector("ha-entity-picker");
-    if (picker) picker.hass = hass;
+    // hass direkt auf die Picker-Instanz setzen (Lit-Property)
+    if (this._picker) this._picker.hass = hass;
   }
 
   setConfig(config) {
@@ -388,13 +387,9 @@ class CoverStatusCardEditor extends HTMLElement {
       <div class="editor">
 
         <!-- Entity -->
-        <div class="field">
+        <div class="field" id="entity-field">
           <label>Entität *</label>
-          <ha-entity-picker
-            id="entity-picker"
-            allow-custom-entity
-            domain-filter="cover"
-          ></ha-entity-picker>
+          <!-- ha-entity-picker wird per JS eingesetzt (Lit-Property hass) -->
         </div>
 
         <!-- Name -->
@@ -422,16 +417,21 @@ class CoverStatusCardEditor extends HTMLElement {
       </div>
     `;
 
-    // Entity-Picker: erst verwenden wenn Custom Element definiert ist
-    customElements.whenDefined("ha-entity-picker").then(() => {
-      const picker = this.shadowRoot.querySelector("#entity-picker");
-      if (this._hass) picker.hass = this._hass;
-      picker.value = this._config.entity ?? "";
-      picker.addEventListener("value-changed", (e) => {
-        this._config = { ...this._config, entity: e.detail.value };
-        this._fire(this._config);
-      });
+    // Entity-Picker per createElement einsetzen damit hass als JS-Property gesetzt werden kann
+    const pickerField = this.shadowRoot.querySelector("#entity-field");
+    const picker = document.createElement("ha-entity-picker");
+    picker.setAttribute("allow-custom-entity", "");
+    picker.setAttribute("domain-filter", "cover");
+    picker.style.width = "100%";
+    // hass als JS-Property setzen (nicht Attribut) – Lit-Komponenten benötigen das
+    if (this._hass) picker.hass = this._hass;
+    picker.value = this._config.entity ?? "";
+    picker.addEventListener("value-changed", (e) => {
+      this._config = { ...this._config, entity: e.detail.value };
+      this._fire(this._config);
     });
+    pickerField.appendChild(picker);
+    this._picker = picker;
 
     // Name-Input: nur bei blur feuern, nicht bei jedem Tastendruck
     const nameInput = this.shadowRoot.querySelector("#name-input");
@@ -482,9 +482,8 @@ class CoverStatusCardEditor extends HTMLElement {
 
   // Nur Feldwerte aktualisieren (kein DOM-Rebuild → kein Fokus-Verlust)
   _syncFields() {
-    const picker = this.shadowRoot.querySelector("#entity-picker");
-    if (picker && picker.value !== (this._config.entity ?? "")) {
-      picker.value = this._config.entity ?? "";
+    if (this._picker && this._picker.value !== (this._config.entity ?? "")) {
+      this._picker.value = this._config.entity ?? "";
     }
     const tiltSwitch = this.shadowRoot.querySelector("#tilt-switch");
     if (tiltSwitch) tiltSwitch.checked = this._config.show_tilt ?? false;
