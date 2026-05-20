@@ -117,15 +117,16 @@ class CoverStatusCard extends HTMLElement {
       }
     }
 
-    // --- Breite: style.width aus Konfiguration oder dynamisch ---
-    const configWidth = this._config?.style?.width;
-    const cardWidth    = configWidth ? configWidth : "fit-content";
+    // --- Breite: wenn style.width gesetzt, füllt .card den Host (wird von HA gesetzt) ---
+    const configWidth  = this._config?.style?.width;
+    const cardWidth    = configWidth ? "100%"      : "fit-content";
     const cardMinWidth = configWidth ? "unset"     : "120px";
 
     this.shadowRoot.innerHTML = `
       <style>
         :host {
           display: block;
+          width: 100%;
           font-family: var(--paper-font-body1_-_font-family, sans-serif);
           font-size: var(--paper-font-body1_-_font-size, 14px);
         }
