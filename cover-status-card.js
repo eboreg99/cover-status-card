@@ -133,7 +133,7 @@ class CoverStatusCard extends HTMLElement {
 
         .card {
           background: ${bgColor};
-          border-radius: var(--ha-card-border-radius, 12px);
+          border-radius: var(--ha-card-border-radius, 5px);
           padding: 6px 10px;
           box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.15));
           width: ${cardWidth};
