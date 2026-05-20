@@ -9,7 +9,7 @@
  *   type: custom:cover-status-card
  *   entity: cover.wohnzimmer_jalousie
  *   name: Wohnzimmer            # optional, überschreibt den Entity-Namen
- *   show_tilt: true             # optional, aktiviert Tilt-Anzeige wenn Position < 3%
+ *   show_tilt: true             # optional, aktiviert Tilt-Anzeige wenn Position < 5%
  *
  * Als picture-elements-Element:
  *   type: custom:cover-status-card
@@ -76,14 +76,14 @@ class CoverStatusCard extends HTMLElement {
     let bgColor;
     if (_posNum === null) {
       bgColor = "pink";
-    } else if (_posNum <= 3) {
-      // Pos 0-3: Farbe hängt vom Tilt ab (nur wenn show_tilt aktiv und Tilt vorhanden)
-      if (showTilt && _tiltNum !== null && _tiltNum > 3) {
+    } else if (_posNum <= 5) {
+      // Pos 0-5: Farbe hängt vom Tilt ab (nur wenn show_tilt aktiv und Tilt vorhanden)
+      if (showTilt && _tiltNum !== null && _tiltNum > 5) {
         bgColor = "silver";
       } else {
         bgColor = "slategray";
       }
-    } else if (_posNum >= 97) {
+    } else if (_posNum >= 95) {
       bgColor = "gold";
     } else {
       bgColor = "orange";
@@ -100,18 +100,18 @@ class CoverStatusCard extends HTMLElement {
       const posNum   = (pos !== undefined && pos !== null) ? Number(pos) : null;
       const tiltNum  = (tilt !== undefined && tilt !== null) ? Number(tilt) : null;
 
-      // Tilt anzeigen, wenn: show_tilt=true UND Position < 3 %
-      const useTilt  = showTilt && tiltNum !== null && posNum !== null && posNum < 3;
+      // Tilt anzeigen, wenn: show_tilt=true UND Position < 5 %
+      const useTilt  = showTilt && tiltNum !== null && posNum !== null && posNum < 5;
 
       if (useTilt) {
         // Tilt-Position anstelle des Status
-        line2 = `Lamellen ${tiltNum}\u202f%`;
+        line2 = `Tilt ${tiltNum}\u202f%`;
       } else {
         // Status-Text
         line2 = this._getStatusLabel(state);
 
-        // Position anhängen, wenn zwischen 3 % und 97 %
-        if (posNum !== null && posNum >= 3 && posNum <= 97) {
+        // Position anhängen, wenn zwischen 5 % und 95 %
+        if (posNum !== null && posNum >= 5 && posNum <= 95) {
           line2 += ` · ${posNum}\u202f%`;
         }
       }
