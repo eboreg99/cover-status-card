@@ -78,7 +78,7 @@ class CoverStatusCard extends HTMLElement {
       bgColor = "pink";
     } else if (_posNum <= 5) {
       // Pos 0-5: Farbe hängt vom Tilt ab (nur wenn show_tilt aktiv und Tilt vorhanden)
-      if (showTilt && _tiltNum !== null && _tiltNum > 5) {
+      if (showTilt && _tiltNum !== null && _tiltNum >= 5) {
         bgColor = "silver";
       } else {
         bgColor = "slategray";
