@@ -117,6 +117,11 @@ class CoverStatusCard extends HTMLElement {
       }
     }
 
+    // --- Breite: style.width aus Konfiguration oder dynamisch ---
+    const configWidth = this._config?.style?.width;
+    const cardWidth    = configWidth ? configWidth : "fit-content";
+    const cardMinWidth = configWidth ? "unset"     : "120px";
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -128,9 +133,10 @@ class CoverStatusCard extends HTMLElement {
         .card {
           background: ${bgColor};
           border-radius: var(--ha-card-border-radius, 12px);
-          padding: 10px 14px;
+          padding: 6px 10px;
           box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.15));
-          min-width: 120px;
+          width: ${cardWidth};
+          min-width: ${cardMinWidth};
           cursor: pointer;
           user-select: none;
           transition: opacity .15s;
@@ -139,22 +145,24 @@ class CoverStatusCard extends HTMLElement {
 
         .name {
           font-weight: 400;
+          font-size: .85em;
           color: #000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          margin-bottom: 2px;
+          margin-bottom: 1px;
+          line-height: 1.2;
         }
 
         .status {
           font-weight: 700;
           font-size: .85em;
+          color: #000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.2;
         }
-
-        .status { color: #000; }
       </style>
 
       <div class="card" title="${entityId}">
