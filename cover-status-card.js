@@ -123,15 +123,21 @@ class CoverStatusCard extends HTMLElement {
       }
     }
 
-    const configWidth  = this._config?.style?.width;
-    const cardWidth    = configWidth ? "100%"  : "fit-content";
-    const cardMinWidth = configWidth ? "unset" : "120px";
+    // In einer picture-elements-Karte wird der Karte ein `style`-Objekt
+    // (top/left/…) mitgegeben und das Host-Element absolut positioniert.
+    // Dann soll sich die Karte an ihrem Inhalt orientieren (bzw. an einer
+    // explizit gesetzten Breite). In allen anderen Fällen (Stack, Grid,
+    // Einzelkarte) füllt sie schlicht ihren zugewiesenen Platz.
+    const inPictureElements = this._config?.style != null;
+    const peWidth           = this._config?.style?.width;
+    const hostWidth         = inPictureElements ? (peWidth ?? "max-content") : "100%";
 
     this.shadowRoot.innerHTML = `
       <style>
         :host {
           display: block;
-          width: 100%;
+          box-sizing: border-box;
+          width: ${hostWidth};
           font-family: var(--paper-font-body1_-_font-family, sans-serif);
           font-size: var(--paper-font-body1_-_font-size, 14px);
         }
@@ -140,8 +146,9 @@ class CoverStatusCard extends HTMLElement {
           border-radius: var(--ha-card-border-radius, 5px);
           padding: 6px 10px;
           box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.15));
-          width: ${cardWidth};
-          min-width: ${cardMinWidth};
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
           cursor: pointer;
           user-select: none;
           transition: opacity .15s;
